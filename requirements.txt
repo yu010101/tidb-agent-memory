@@ -1,0 +1,7 @@
+pymysql>=1.1.0
+PyYAML>=6.0
+numpy>=1.24
+# 埋め込み(ローカル既定)。初回のみモデルDL。OpenAI利用時は不要。
+sentence-transformers>=2.6.0
+# OpenAI埋め込みを使う場合のみ:
+# openai>=1.0
