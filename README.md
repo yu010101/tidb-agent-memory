@@ -29,12 +29,13 @@ make bench                  # before(3層) vs after(TiDB) を実測 → bench/re
 ## これは何を示すか
 - `schema/01_schema.sql` … `VECTOR(384)` + `FULLTEXT ... WITH PARSER MULTILINGUAL` の1テーブル。
 - `schema/02_hybrid_recall.sql` … 構造化WHERE×ベクトルANN×全文を **RRF(自前実装)** で融合した想起SQL。
-  公式は生SQLのRRF例を出していない(pytidbの`.fusion()`のみ)ため、`ROW_NUMBER()+1/(k+rank)` で実装。
+  公式のhybrid searchガイドは pytidb の `.fusion()` のみ案内で生SQLのRRF例が見当たらないため、`ROW_NUMBER()+1/(k+rank)` で実装。
 - `bench/` … recall@5/@10・MRR・レイテンシを4モード(vector/fts/hybrid/旧3層baseline)で比較。
 
 ## 正直に
 - seedデータは**合成**(本番KBの構造=signal_type分類を模したもの)。本番の未公開数値は載せていない。
-- TiDBの vector / full-text search はいずれも **beta(early stages)**。本番採用は仕様変動に注意。
+- **全文検索**は公式が **"early stages(限定提供)"** と明記。**ベクトル検索**は対象リージョンで利用可
+  (現行docs上は明示的なbeta表記なし)。本番採用は最新docsで状態を要確認。
 - 記事中の数値はすべて本repoの`make bench`で再現できる。
 
 ## ライセンス

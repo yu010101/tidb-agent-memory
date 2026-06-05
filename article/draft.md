@@ -58,6 +58,25 @@ published: false
 
 ## 2. 設計：TiDB 1台に畳む
 
+```mermaid
+flowchart LR
+  subgraph Before["Before：3層（同期・マージが要る）"]
+    direction TB
+    A1[AIエージェント群] --> R1[(RDB<br/>構造化)]
+    A1 --> V1[(ベクトルDB<br/>pgvector等)]
+    A1 --> F1[(全文エンジン<br/>ES/Meili)]
+    R1 --> M1{アプリ側で<br/>RRFマージ}
+    V1 --> M1
+    F1 --> M1
+    M1 --> O1[想起結果]
+  end
+  subgraph After["After：TiDB 1台（1 SQL）"]
+    direction TB
+    A2[AIエージェント群] --> T2[(TiDB<br/>構造化+VECTOR+FULLTEXT)]
+    T2 -->|1 SQL で RRF| O2[想起結果]
+  end
+```
+
 TiDBは MySQL 互換の分散SQL DBで、**1テーブルに `VECTOR` 列と `FULLTEXT` インデックスの両方**を載せられる。
 記憶テーブルはこうした（次元はローカル埋め込み `multilingual-e5-small` の 384。OpenAIなら1536）：
 
@@ -125,7 +144,7 @@ LIMIT 10;
 
 ### 3-4. 本命：構造化 × ANN × 全文 を 1 SQL の RRF で融合
 
-ここが本記事の核。**公式は「生SQLでの RRF 融合」の例を出していない**（pytidb の `.fusion()` 経由のみ案内）。
+ここが本記事の核。**公式の hybrid search ガイドは pytidb の `.fusion()` 経由のみ案内で、生SQLでの RRF 融合の完全な例が見当たらない**（少なくとも筆者が確認した範囲）。
 そこで **Reciprocal Rank Fusion（`score = Σ 1/(k+rank)`, k=60）を `ROW_NUMBER()` で自前実装**した。
 
 ```sql
@@ -163,6 +182,33 @@ SELECT id FROM fused ORDER BY rrf_score DESC LIMIT :topk;
 
 3つの検索軸が、別システムへの問い合わせ＋アプリ側マージなしに、**1本のSQL**で返る。
 
+### 3-5. 想起の実行例（クラスタ無しでも試せる）
+
+`src/recall.py` は既定で baseline（ローカル3層）で動くので、TiDBクラスタが無くても挙動を確認できる
+（`--tidb` で TiDB 実行に切替）。
+
+```bash
+$ python -m src.recall --query "POSの返金フローはどう実装したか" \
+      --term 返金フロー --product posplus --min-imp 2 --topk 8
+```
+
+```text
+想起: query='POSの返金フローはどう実装したか' / term='返金フロー' /
+      filter: product=posplus, importance>=2  [baseline(3層, ローカル)]
+
+rank    id  agent        type       imp  body
+----------------------------------------------------------------------------------------
+   1     1  claude       hypothesis  5   POSの返金処理で在庫を戻す（返金フロー）
+   2     3  codex        decision    2   部分返金のときの端数処理（返金フロー）
+   3    12  grok         decision    5   POSの返金処理で在庫を戻す→対応済み（返金フロー）
+   4    14  gemini       decision    2   POSの返金処理で在庫を戻す（返金フロー）
+   5     2  orchestrator learning    5   返金時に売上を打ち消す仕訳（返金フロー）
+   ...
+```
+
+異なるエージェント（claude / codex / grok / gemini / orchestrator）が書いた記憶が、
+**「posplus 文脈・重要度2以上」という構造化フィルタを満たしつつ、意味と語の両方で**想起されている。
+
 ## 4. 実測：before（3層）vs after（TiDB 1台）
 
 比較のため、**“前”の3層構成も同じseed・同じクエリでローカル実装**した
@@ -190,9 +236,9 @@ SELECT id FROM fused ORDER BY rrf_score DESC LIMIT :topk;
 ## 6. まとめと限界
 
 - 「AIエージェントのメモリ」を、**専用ベクトルDBを足さずにTiDB 1台**で構造化×意味×全文を同時に扱えた。
-- 向く：構造化フィルタとRAGが密に絡む agent memory。向かない／要注意：超大規模ベクトル・厳密SLAなど（後述のbeta）。
+- 向く：構造化フィルタとRAGが密に絡む agent memory。向かない／要注意：超大規模ベクトル・厳密SLAなど。
 - **正直に**：本記事のデータは**合成**（本番KBの構造を模したもの）で、数値は `make bench` 由来。本番の未公開値は載せていない。
-  TiDBの vector / full-text search はいずれも **beta（early stages）**。本番採用は仕様変動に注意。
+  状態表記も正確に：**全文検索**は公式が **"early stages(限定提供)"** と明記、**ベクトル検索**は対象リージョンで利用可（現行docs上は明示的なbeta表記なし）。本番採用は最新docsで要確認。
 
 ## 付録
 
@@ -204,6 +250,6 @@ SELECT id FROM fused ORDER BY rrf_score DESC LIMIT :topk;
 [x] make setup && make bench → baseline 3モード実測を TL;DR に反映済 (hybrid recall@10=0.933)
 [ ] Singapore クラスタで make schema && make ingest && make bench → TiDB側の同3モード行を追記
 [ ] TiDB行が出たら results.md の最終表を §4 に貼り、parity を確認
-[ ] 技術主張(構文・リージョン・beta表記)を /debate verify に通す
+[x] 技術主張10項を独立ファクトチェック済(全文=early stages/ベクトル=明示betaなし に修正、RRF主張を範囲限定に修正)
 [ ] TiDB Cloud を実使用（加点）/ サムネ・OGP
 -->

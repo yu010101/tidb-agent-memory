@@ -1,6 +1,6 @@
 -- =============================================================================
 -- エージェント記憶の想起クエリ: 構造化WHERE × ベクトルANN × 全文 を 1 SQL で
---   公式は「生SQLのRRF融合例」を提供していない(pytidbの .fusion() のみ)。
+--   公式のhybrid searchガイドは pytidbの .fusion() のみ案内で、生SQLのRRF融合の完全例が見当たらない。
 --   → ここでは RRF (Reciprocal Rank Fusion, score = Σ 1/(k+rank)) を
 --     ROW_NUMBER() で生SQL自前実装する。これが本記事の独自貢献。
 --   出典(融合は未提供の確認): https://github.com/pingcap/docs/blob/master/ai/guides/vector-search-hybrid-search.md

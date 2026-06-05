@@ -11,7 +11,8 @@
 --      出典: https://github.com/pingcap/docs/blob/master/ai/guides/vector-search-full-text-search-sql.md
 --   2) VECTOR INDEX は TiFlash レプリカに依存。CREATE TABLE 時に索引を定義すれば自動作成される。
 --      出典: https://github.com/pingcap/docs/blob/master/ai/reference/vector-search-index.md
---   3) vector search / full-text search はともに beta(early stages)。本番採用時は仕様変動に注意。
+--   3) 全文検索は公式が "early stages(限定提供)" と明記。ベクトル検索は対象リージョンで利用可
+--      (現行docs上、明示的なbeta/early表記は確認できず)。本番採用時は最新docsで状態を要確認。
 --
 -- 埋め込み次元: 既定はローカル多言語モデル multilingual-e5-small = 384 次元
 --   (APIキー不要で clone&run 可能にするため)。OpenAI text-embedding-3-small を使う場合は 1536 に変更。
