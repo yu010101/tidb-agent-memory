@@ -46,13 +46,17 @@ vec_ranked AS (
     AND m.product_id = %(product)s AND m.importance >= %(min_imp)s
 ),
 fts_ranked AS (
-  SELECT id, ROW_NUMBER() OVER (ORDER BY fts_match_word(%(q)s, body) DESC) AS rnk
-  FROM memories
-  WHERE fts_match_word(%(q)s, body)
-    AND (%(agent)s IS NULL OR agent = %(agent)s)
-    AND product_id = %(product)s AND importance >= %(min_imp)s
-  ORDER BY fts_match_word(%(q)s, body) DESC
-  LIMIT 100
+  -- ⚠️ fts_match_word は window関数 OVER(ORDER BY fts_match_word...) の中では使えない
+  --   (ERROR 1221: must be used alone)。内側でscore化→外側でROW_NUMBERにする。
+  SELECT id, ROW_NUMBER() OVER (ORDER BY s DESC) AS rnk FROM (
+    SELECT id, fts_match_word(%(q)s, body) AS s
+    FROM memories
+    WHERE fts_match_word(%(q)s, body)
+      AND (%(agent)s IS NULL OR agent = %(agent)s)
+      AND product_id = %(product)s AND importance >= %(min_imp)s
+    ORDER BY fts_match_word(%(q)s, body) DESC
+    LIMIT 100
+  ) ft
 ),
 fused AS (
   SELECT id, SUM(rrf) AS rrf_score FROM (

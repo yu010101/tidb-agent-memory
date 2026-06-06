@@ -39,34 +39,31 @@ vec_ranked AS (
       AND importance >= :min_imp
 ),
 -- (B) 全文枝: fts_match_word を WHERE/ORDER BY で使用。構造化フィルタは同一クエリ内で併用可。
+--   ⚠️ 実機で判明(ERROR 1221): fts_match_word は window関数 OVER(ORDER BY fts_match_word...)
+--      の中では使えない("must be used alone")。→ 内側でscore化し、外側でROW_NUMBERを振る。
 fts_ranked AS (
-    SELECT id, body, agent, signal_type, importance, product_id, created_at,
-           fts_match_word(:q, body) AS score,
-           ROW_NUMBER() OVER (ORDER BY fts_match_word(:q, body) DESC) AS rnk
-    FROM memories
-    WHERE fts_match_word(:q, body)
-      AND (:agent   IS NULL OR agent = :agent)
-      AND (:product IS NULL OR product_id = :product)
-      AND importance >= :min_imp
-    ORDER BY fts_match_word(:q, body) DESC
-    LIMIT 100
+    SELECT id, ROW_NUMBER() OVER (ORDER BY score DESC) AS rnk FROM (
+        SELECT id, fts_match_word(:q, body) AS score
+        FROM memories
+        WHERE fts_match_word(:q, body)
+          AND (:agent   IS NULL OR agent = :agent)
+          AND (:product IS NULL OR product_id = :product)
+          AND importance >= :min_imp
+        ORDER BY fts_match_word(:q, body) DESC
+        LIMIT 100
+    ) ft
 ),
 -- (C) RRF 融合: id ごとに Σ 1/(k+rank) を合算 (生SQL自前実装)
 fused AS (
-    SELECT id,
-           SUM(rrf) AS rrf_score,
-           MAX(vdist) AS vector_distance,
-           MAX(fscore) AS fts_score
-    FROM (
-        SELECT id, 1.0/(:rrf_k + rnk) AS rrf, dist  AS vdist, NULL AS fscore FROM vec_ranked
+    SELECT id, SUM(rrf) AS rrf_score FROM (
+        SELECT id, 1.0/(:rrf_k + rnk) AS rrf FROM vec_ranked
         UNION ALL
-        SELECT id, 1.0/(:rrf_k + rnk) AS rrf, NULL  AS vdist, score AS fscore FROM fts_ranked
+        SELECT id, 1.0/(:rrf_k + rnk) AS rrf FROM fts_ranked
     ) u
     GROUP BY id
 )
 SELECT m.id, m.agent, m.signal_type, m.importance, m.product_id, m.created_at,
-       f.rrf_score, f.vector_distance, f.fts_score,
-       LEFT(m.body, 80) AS body_preview
+       f.rrf_score, LEFT(m.body, 80) AS body_preview
 FROM fused f
 JOIN memories m ON m.id = f.id
 ORDER BY f.rrf_score DESC
