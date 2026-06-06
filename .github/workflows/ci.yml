@@ -1,0 +1,27 @@
+name: ci
+
+# 依存なしで動く軽量CI。RRF/recallの算術と seed の決定論性を毎push検証する
+# (= 記事の「再現性」を機械的に裏付ける)。重いbench(torch/TiDB)はCI対象外。
+on:
+  push:
+  pull_request:
+
+jobs:
+  reproducibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 融合/評価メトリクスの単体テスト
+        run: python tests/test_fusion.py
+
+      - name: seed が決定論的か (2回生成して一致を確認)
+        run: |
+          python seed/make_seed.py
+          sha1sum seed/memories.jsonl seed/eval.yaml > /tmp/h1
+          python seed/make_seed.py
+          sha1sum seed/memories.jsonl seed/eval.yaml > /tmp/h2
+          diff /tmp/h1 /tmp/h2 && echo "✅ seed は決定論的 (random.seed=42)"

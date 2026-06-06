@@ -216,7 +216,25 @@ rank    id  agent        type       imp  body
 検索アルゴリズム（RRF）は揃えてあるので、**recall は概ね同等**になる——それが狙いだ。
 本事例の主眼は recall を上げることではなく、**品質を保ったままインフラを 3→1 に畳み、マージをSQL化**した点にある。
 
-<!-- ここに TL;DR の2つの表（モード比較 / 構成の畳み込み）を再掲 or 参照 -->
+検索品質（`make bench` 実測, baseline=ローカル3層, 378メモリ/18クエリ, topk=10）:
+
+| モード | recall@5 | recall@10 | MRR |
+|---|---|---|---|
+| vector のみ | 0.944 | 0.844 | 1.0 |
+| 全文のみ | 1.000 | 0.922 | 1.0 |
+| **hybrid（構造化×ベクトル×全文）** | **1.000** | **0.933** | 1.0 |
+
+> TiDB側（A/B/C）の同3モードは、Singaporeクラスタで `make schema && make ingest && make bench` を回すと
+> `bench/results/results.md` に追記される。検索アルゴリズム（RRF）が同一なので recall は parity の想定。
+
+構成の畳み込み（定性）:
+
+| 観点 | Before（3層） | After（TiDB 1台） |
+|---|---|---|
+| データストア数 | 3（RDB / ベクトル / 全文） | **1** |
+| 接続・クライアント | 3 | **1** |
+| 「構造化×意味×全文」の合成 | アプリ側で RRF マージを実装 | **1 SQL** |
+| 二重書き込み・同期 | 必要 | **不要** |
 
 ### 評価の作り方（再現性のために明記）
 
@@ -229,7 +247,7 @@ rank    id  agent        type       imp  body
 
 1. **全文検索が動かない**：US等のリージョン → 全文は Frankfurt/Singapore のみ → Singaporeで作り直す。
 2. **ベクトル索引が効かない**：`WHERE` プレフィルタ or `DESC` → 索引条件外 → KNN先取り＋後段フィルタ＋`ASC`。
-3. **RRFの公式SQL例が無い**：pytidbの`.fusion()`のみ → `ROW_NUMBER()+1/(k+rank)` を自前実装。
+3. **RRFの生SQL例が見当たらない**（確認範囲）：公式ガイドは pytidb の `.fusion()` のみ → `ROW_NUMBER()+1/(k+rank)` を自前実装。
 4. **VECTOR索引が作れない**：TiFlashレプリカ依存 → CREATE時に索引定義すれば自動。後付けは `ALTER TABLE ... SET TIFLASH REPLICA 1`。
 5. **2文字の語が全文で当たらない**（ローカル比較側の sqlite FTS5 trigram）：trigramは3文字以上 → 検索語を3文字以上に。
 
