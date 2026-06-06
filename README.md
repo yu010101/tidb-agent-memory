@@ -1,5 +1,10 @@
 # tidb-agent-memory
 
+![tidb-agent-memory](article/assets/ogp.png)
+
+> GitHub の Settings → Options → Social preview に `article/assets/ogp.png` を設定すると、
+> 共有時のOGPカードになります（X/note等の宣伝にも流用可）。
+
 5社のAIエージェント(Claude / Gemini / Codex / Grok + orchestrator)が共有する**長期記憶**を、
 専用ベクトルDB＋全文エンジン＋RDB の3層構成から **TiDB Cloud 1台** に畳んだ最小再現リポジトリ。
 **構造化フィルタ × ベクトルANN × 全文検索 を 1 つの SQL** で実行する。
