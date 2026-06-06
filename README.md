@@ -44,11 +44,10 @@ make bench                  # before(3層) vs after(TiDB) を実測 → bench/re
 - 記事中の数値はすべて本repoの`make bench`で再現できる。
 
 ## Zenn記事
-本リポジトリは [Zenn](https://zenn.dev) の GitHub 連携レイアウトを兼ねる。
-- 記事本体: `articles/tidb-agent-memory-rag.md`（slug=`tidb-agent-memory-rag`）
-- 公開するには: Zenn のダッシュボードでこの GitHub リポジトリを一度連携 → frontmatter の
-  `published: true` にして push すると自動公開される。
-- Zenn Fes への応募は、公開後の記事ページで「TiDB」テーマを選択（Web操作）。
+本リポジトリは記事の**ソースコード**側。記事本文の作業稿は `article/draft.md`。
+公開用の記事は Zenn 連携リポジトリ [`yu010101/zenn-content`](https://github.com/yu010101/zenn-content) の
+`articles/tidb-agent-memory-rag.md` にあり、`published: true` で push すると Zenn に自動公開される。
+Zenn Fes への応募は、公開後の記事ページで「TiDB」テーマを選択（Web操作）。
 
 ## ライセンス
 MIT
